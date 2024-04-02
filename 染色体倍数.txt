@@ -1,0 +1,41 @@
+#1、安装
+mamba install kmc smudgeplot -y
+
+#2、用KMC计算k-mer频率，生成k-mer直方图
+mkdir tmp #创建临时文件夹
+ls 01.cleandata/*.gz > FILES  #用于分析的clean reads路径保存到文件FILES中
+kmc -k17 -t50 -m100 -ci1 -cs10000 @FILES kmcdb tmp #计算k-mer频率
+kmc_tools -t50 transform kmcdb histogram sample.histo -cx10000 #生成k-mer频数直方表sample.histo和k-mer直方图
+#kmc命令参数
+#-k21：k-mer长度设置为21
+#-t16：线程16
+#-m64：内存64G，设置使用RAM的大致数量，范围1-1024。
+#-ci1 -cs10000：统计k-mer coverages覆盖度范围在[1-10000]。
+#@FILES：保存了输入文件列表的文件名为FILES
+#kmcdb：KMC数据库的输出文件名前缀
+#tmp：临时目录
+#kmc_tools命令参数
+#-cx10000：储存在直方图文件中counter的最大值。
+#结果：生成的sample.histo可用于第二步GenomeScope的分析。
+
+#3、选择覆盖阈值
+#可以目视检查k-mer直方图，选择覆盖阈值上(U)下(L)限。
+#也可以用命令估计覆盖阈值上(U)下(L)限。L的取值范围是[20-200]，U的取值范围是[500-3000]。
+L=$(smudgeplot.py cutoff sample.histo L)
+U=$(smudgeplot.py cutoff sample.histo U)
+echo $L $U # these need to be sane values
+
+#4、提取阈值范围的k-mers，计算k-mer pairs
+#用kmc_tools提取k-mers，然后用KMC的smudge_pairs计算k-mer pairs。
+#smudge_pairs比smudgeplot.py hetkmers使用更少内存，速度更快地寻找杂合k-mer pairs。
+#方法1：
+kmc_tools -t50 transform kmcdb -ci"$L" -cx"$U" reduce kmcdb_L"$L"_U"$U"
+smudge_pairs kmcdb_L"$L"_U"$U" kmcdb_L"$L"_U"$U"_coverages.tsv kmcdb_L"$L"_U"$U"_pairs.tsv > kmcdb_L"$L"_U"$U"_familysizes.tsv
+#方法2：
+#如果没有KMC，可以用kmc_dump提取k-mers，然后用smudgeplot.py hetkmers计算k-mer pairs。
+kmc_tools -t50 transform kmcdb -ci"$L" -cx"$U" dump -s kmcdb_L"$L"_U"$U".dump
+smudgeplot.py hetkmers -o kmcdb_L"$L"_U"$U" < kmcdb_L"$L"_U"$U".dump
+
+#5、生成污点图(smudgeplot)
+smudgeplot.py plot kmcdb_L"$L"_U"$U"_coverages.tsv
+#生成两个基础的污点图，一个log尺度，一个线性尺度。

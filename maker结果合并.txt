@@ -1,0 +1,52 @@
+gff3_merge
+
+
+Synopsis:
+
+gff3_merge -d maker_datastore_index.log
+gff3_merge -o genome.all.gff <gff3_file1> <gff3_file2> ...
+
+Descriptions:
+
+This script will take a MAKER datastore index log file, extract all
+the relevant GFF3 files and combined GFF3 file.  The script can also
+combine other correctly formated GFF3 files.  For this to work
+properly you need to be in the same directory as the datastore index.
+
+Options:
+
+  -d The location of the MAKER datastore index log file.
+  -o Alternate base name for the output files.
+  -s Use STDOUT for output.
+  -g Only write MAKER gene models to the file, and ignore evidence.
+  -n Do not print fasta sequence in footer
+  -l Merge legacy annotation sets (ignores already having seen
+     features more than once for the same contig)
+
+gff3_merge -d genome_master_datastore_index.log -n -g -o 1.gff
+gff3_merge -d <data store index> -n -g -o 1.gff
+这条命令与grep -Pv "\tmatch_part\t" SC.Rad52.gff | grep -Pv "\tprotein_match\t" | grep -Pv "\texpressed_sequence_match\t" | grep -Pv "\tmatch\t" | grep -Pv "\tcontig\t" > polished.gff
+筛选出来的大差不差，推荐使用第一种加上-g参数
+tips：要使基因名称更短，可使用以下命令：
+maker_map_ids --prefix pyu_ --justify 8 --iterate 1 pyu_rnd5.all.gff > id_map
+map_gff_ids id_map pyu_rnd5.all.gff
+map_fasta_ids id_map pyu_rnd5.all.maker.proteins.fasta
+map_fasta_ids id_map pyu_rnd5.all.maker.transcripts.fasta
+
+gff3_clear.pl --prefix gene 1.gff > 11.gff3
+grep -P "\t" 11.gff3 >maker.gff3
+
+busco验证：
+/pub/miniconda3/envs/his-stra-string-trans/bin/gffread maker.gff3 -g genome.fasta -y protein.fa
+singularity exec /pub/container/busco_v5.4.5_cv1.sif busco -m prot -i protein.fa -o basidiomycota_10 -l /home/huangjingyao/genomeproject/05.annotation/maker_all/genome.maker.output.1/basidiomycota_odb10/ -c 34
+#busco
+busco -m prot -i protein.fa -o basidiomycota_10 -l /home/data/ssy28/workplace/db/basidiomycota_odb10/ -c 50 --offline
+绘图：
+generate_plot.py -wd basidiomycota_10/
+
+
+
+
+
+
+

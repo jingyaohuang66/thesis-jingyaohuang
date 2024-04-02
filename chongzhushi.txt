@@ -1,0 +1,20 @@
+#/usr/bin/bash 
+if [ $# == 0 ];then 
+    echo "This shell is used to repeat genome 
+        Usage: sh repeat.sh genome species thread fasta
+    ";  
+fi
+echo "RepeatModeler";
+WORK=`pwd`;
+mkdir -p repeat/RepeatModeler;
+cd repeat/RepeatModeler;
+BuildDatabase -name mydb $1 > genome.fasta.log;
+RepeatModeler -database mydb -pa $3 -LTRStruct > run.out;
+cat mydb-families.fa $4 > all_$2_final.fasta;
+cd $WORK;
+mkdir -p repeat/RepeatModeler;
+cd repeat;
+echo "RepeatMasker";
+RepeatMasker -nolow -no_is -norna -parallel $3 -s -gff -lib ./RepeatModeler/all_$2_final.fasta -dir ./RepeatMasker $1 ;
+cd $WORK
+echo "done";

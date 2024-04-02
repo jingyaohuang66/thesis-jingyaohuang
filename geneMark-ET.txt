@@ -1,0 +1,24 @@
+ulimit -n 65535
+STAR --runThreadN 30 --runMode genomeGenerate --genomeDir index --genomeFastaFiles genome.fasta --genomeSAindexNbases 11
+STAR --runThreadN 34 --runMode alignReads --genomeDir index --readFilesIn /pub/database/rnaseq/rnaseq_R1.fastq.gz /pub/database/rnaseq/rnaseq_R2.fastq.gz --readFilesCommand zcat --outSAMtype BAM SortedByCoordinate --outBAMsortingThreadN 34 --outWigType wiggle --limitBAMsortRAM 2842479818
+#GeneMark-ET下载安装测试
+http://exon.gatech.edu/GeneMark/license_download.cgi提交申请下载
+方法1：awk
+awk 'BEGIN{OFS="\t"} $7 >= 2{if($4==1){st="+"}else{st="-"} print $1,"STAR","intron",$2,$3,$7,st,".","."}' SJ.out.tab > STAR.gff
+方法2：tophat2脚本
+#在软件目录下下提供了bet_to_gff.pl用于将TopHat2的输出结果中的junctions.bed转成introns.gff
+bed_to_gff.pl  --bed tophat_out/junctions.bed --gff introns.gff --label tophat2
+方法3：star脚本
+star_to_gff.pl  --star  [name]  --gff [name]  --label [label]
+  --star   input name/s of junctions.bed from RNA-Seq alignment
+  --gff    output intron coordinates in GFF format
+  --label  [RNA_seq_junction] use this label in GFF to preserve name of the alignment tool
+#尽管它的使用说明--star居然写着junctions.bed,但实际上--star接受的输入就是SJ.out.tab（我看了一下源代码），因此用法如下：
+star_to_gff.pl --star  SJ.out.tab --gff SJ.gff --label STAR
+#安装perl模块
+1.sudo cpan -i YAML Hash::Merge Logger::Simple Parallel::ForkManager
+2.mamba install perl-parallel-forkmanager perl-yaml  perl-mce perl-hash-merge 
+gmes_petap.pl --sequence ref.fa --ET STAR.gff --fungus --cores 60
+gmhmme3=/pub/software/gmes_linux_64_4/gmhmme3 #location of eukaryotic genemark executable
+probuild=/pub/software/gmes_linux_64_4/probuild #location of probuild executable (required for genemark)
+nohup mpiexec -n 34 maker &> maker.log &

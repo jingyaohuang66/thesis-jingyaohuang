@@ -1,0 +1,24 @@
+conda env list
+conda activate his-stra-string-trans
+mkdir index
+hisat2-build ./genome.masked.fa index/genome -p 40
+hisat2 --dta -p 30 -x index/genome -1 ~/workplace/genome/rawdata/rnaseq_R1.fastq.gz -2 ~/workplace/genome/rawdata/rnaseq_R2.fastq.gz | samtools sort -@ 20 > rna-seq.bam
+stringtie -p 20 -o rna-seq.gtf rna-seq.bam
+gtf_genome_to_cdna_fasta.pl rna-seq.gtf genome.masked.fa > transcripts.fasta
+gtf_to_alignment_gff3.pl rna-seq.gtf > transcripts.gff3
+TransDecoder.LongOrfs -t transcripts.fasta
+perl -pe 's/^>(\S+).*/>$1/' transcripts.fasta.transdecoder_dir/longest_orfs.pep > longest_orfs.pep
+diamond blastp --threads 30 -d /pub/database/uniprot/uniprot_sprot.fasta -q transcripts.fasta.transdecoder_dir/longest_orfs.pep --evalue 1e-5 --max-target-seqs 20 --out blast.xml --outfmt 5 --sensitive --id 20 --tmpdir /dev/shm --index-chunks 1 
+parsing_blast_result.pl --no-header --max-hit-num 20 --query-coverage 0.2 --subject-coverage 0.1 blast.xml > blastp.outfmt6
+hmmpress Pfam-A.hmm
+hmmscan --cpu 45 --domtblout pfam.domtbl -E 1e-5 --domE 1e-5 /home/data/ssy28/workplace/db/Pfam-A/Pfam-A.hmm transcripts.fasta.transdecoder_dir/longest_orfs.pep
+TransDecoder.Predict -t transcripts.fasta --retain_pfam_hits pfam.domtbl --retain_blastp_hits blastp.outfmt6
+cdna_alignment_orf_to_genome_orf.pl transcripts.fasta.transdecoder.gff3 transcripts.gff3 transcripts.fasta > transcripts.fasta.transdecoder.genome.gff3
+mkdir raw && cd raw;
+cp ../transcripts.fasta.transdecoder.genome.gff3 ./Training.gff3
+ln -s ~/genome.fasta ./genome.fasta
+geneModels2AugusutsTrainingInput --cpu 20 --min_evalue 1e-9 --min_identity 0.7 --min_coverage_ratio 0.7 --min_cds_num 1 --min_cds_length 450 --min_cds_exon_ratio 0.4 --keep_ratio_for_excluding_too_long_gene 0.99 Training.gff3 genome.fasta
+cd .. && mkdir train && cd train
+gff2gbSmallDNA.pl ../raw/out.filter2.gff3 $Genome 1000 trans.gene.raw.gb
+new_species.pl  --species=for_bad_genes_removing --AUGUSTUS_CONFIG_PATH=/pub/miniconda3/envs/tri-pasa-aug/config/
+
